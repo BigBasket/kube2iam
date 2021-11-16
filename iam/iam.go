@@ -117,10 +117,10 @@ func (iam *Client) EndpointFor(service, region string, optFns ...func(*endpoints
 	if service == "sts" {
 		// only if a valid region is explicitly set
 		if IsValidRegion(region) {
-			if len(iam.StsVpcEndPoint) > 0 {
-				iam.Endpoint = iam.StsVpcEndPoint
-			} else {
+			if iam.StsVpcEndPoint == "" {
 				iam.Endpoint = GetEndpointFromRegion(region)
+			} else {
+				iam.Endpoint = iam.StsVpcEndPoint
 			}
 			return endpoints.ResolvedEndpoint{
 				URL:           iam.Endpoint,

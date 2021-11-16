@@ -387,8 +387,14 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 	if err != nil {
 		return err
 	}
+
 	s.k8s = k
-	s.iam = iam.NewClient(s.BaseRoleARN, s.UseRegionalStsEndpoint, s.StsVpcEndPoint)
+	var nErr error
+	s.iam, nErr = iam.NewClient(s.BaseRoleARN, s.UseRegionalStsEndpoint, s.StsVpcEndPoint)
+	if nErr != nil {
+		return nErr
+	}
+
 	log.Debugln("Caches have been synced.  Proceeding with server.")
 	s.roleMapper = mappings.NewRoleMapper(s.IAMRoleKey, s.IAMExternalID, s.DefaultIAMRole, s.NamespaceRestriction, s.NamespaceKey, s.iam, s.k8s, s.NamespaceRestrictionFormat)
 	log.Debugf("Starting pod and namespace sync jobs with %s resync period", s.CacheResyncPeriod.String())

@@ -29,6 +29,7 @@ type Client struct {
 	Endpoint            string
 	UseRegionalEndpoint bool
 	StsVpcEndPoint      string
+	StsService          *sts.STS
 }
 
 // Credentials represent the security Credentials response.
@@ -145,15 +146,6 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
 		defer timer.ObserveDuration()
 
-		sess, err := session.NewSession()
-		if err != nil {
-			return nil, err
-		}
-		config := aws.NewConfig().WithLogLevel(2)
-		if iam.UseRegionalEndpoint {
-			config = config.WithEndpointResolver(iam)
-		}
-		svc := sts.New(sess, config)
 		assumeRoleInput := sts.AssumeRoleInput{
 			DurationSeconds: aws.Int64(int64(sessionTTL.Seconds() * 2)),
 			RoleArn:         aws.String(roleARN),
@@ -163,7 +155,7 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		if externalID != "" {
 			assumeRoleInput.SetExternalId(externalID)
 		}
-		resp, err := svc.AssumeRole(&assumeRoleInput)
+		resp, err := iam.StsService.AssumeRole(&assumeRoleInput)
 		if err != nil {
 			return nil, err
 		}
@@ -188,11 +180,23 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 }
 
 // NewClient returns a new IAM client.
-func NewClient(baseARN string, regional bool, stsVpcEndPoint string) *Client {
-	return &Client{
+func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, error) {
+	client := &Client{
 		BaseARN:             baseARN,
 		Endpoint:            "sts.amazonaws.com",
 		UseRegionalEndpoint: regional,
 		StsVpcEndPoint:      stsVpcEndPoint,
 	}
+	sess, err := session.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open the new aws session %v", err.Error())
+	}
+
+	config := aws.NewConfig().WithLogLevel(2)
+	if client.UseRegionalEndpoint {
+		config = config.WithEndpointResolver(client)
+	}
+	client.StsService = sts.New(sess, config)
+
+	return client, nil
 }

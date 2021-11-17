@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/jtblin/kube2iam/metrics"
 	"github.com/karlseguin/ccache"
+	"github.com/sirupsen/logrus"
 )
 
 var cache = ccache.New(ccache.Configure())
@@ -158,6 +159,8 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		}
 		resp, err := iam.StsService.AssumeRole(&assumeRoleInput)
 		if err != nil {
+			logrus.Error(err)
+
 			return nil, err
 		}
 
@@ -175,6 +178,8 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		metrics.IamCacheHitCount.WithLabelValues(roleARN).Inc()
 	}
 	if err != nil {
+		logrus.Error(err)
+
 		return nil, err
 	}
 	return item.Value().(*Credentials), nil

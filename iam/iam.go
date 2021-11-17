@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net/http"
 	"strings"
 	"time"
 
@@ -187,15 +188,26 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 		UseRegionalEndpoint: regional,
 		StsVpcEndPoint:      stsVpcEndPoint,
 	}
-	sess, err := session.NewSession()
+	loglevel := aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors | aws.LogDebugWithHTTPBody
+	sess, err := session.NewSession(
+		&aws.Config{
+			HTTPClient: &http.Client{
+				Timeout: 1 * time.Second,
+			},
+			LogLevel: &loglevel,
+		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the new aws session %v", err.Error())
 	}
 
-	config := aws.NewConfig().WithLogLevel(aws.LogDebug)
+	config := aws.NewConfig().WithLogLevel(
+		aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors | aws.LogDebugWithHTTPBody)
 	if client.UseRegionalEndpoint {
 		config = config.WithEndpointResolver(client)
 	}
+	config = config.WithHTTPClient(&http.Client{
+		Timeout: 1 * time.Second,
+	})
 	client.StsService = sts.New(sess, config)
 
 	return client, nil

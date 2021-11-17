@@ -199,7 +199,7 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 		config = config.WithEndpointResolver(client)
 	}
 	config = config.WithHTTPClient(&http.Client{
-		Timeout: 1 * time.Second,
+		Timeout: 5 * time.Second,
 	})
 
 	sess, err := session.NewSession(config)

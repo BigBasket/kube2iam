@@ -156,6 +156,8 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		if externalID != "" {
 			assumeRoleInput.SetExternalId(externalID)
 		}
+		logrus.Debugf("making call to the assume role %v", iam.StsService)
+
 		resp, err := iam.StsService.AssumeRole(&assumeRoleInput)
 		if err != nil {
 			logrus.Error(err)

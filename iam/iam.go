@@ -192,7 +192,7 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 	sess, err := session.NewSession(
 		&aws.Config{
 			HTTPClient: &http.Client{
-				Timeout: 1 * time.Second,
+				Timeout: 10 * time.Second,
 			},
 			LogLevel: &loglevel,
 		})

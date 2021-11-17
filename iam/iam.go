@@ -188,7 +188,7 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 		UseRegionalEndpoint: regional,
 		StsVpcEndPoint:      stsVpcEndPoint,
 	}
-	loglevel := aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors | aws.LogDebugWithHTTPBody
+	loglevel := aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors
 	sess, err := session.NewSession(
 		&aws.Config{
 			HTTPClient: &http.Client{
@@ -201,7 +201,7 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 	}
 
 	config := aws.NewConfig().WithLogLevel(
-		aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors | aws.LogDebugWithHTTPBody)
+		aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors)
 	if client.UseRegionalEndpoint {
 		config = config.WithEndpointResolver(client)
 	}

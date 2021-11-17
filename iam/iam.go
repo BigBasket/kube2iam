@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"net/http"
 	"strings"
 	"time"
 
@@ -204,6 +205,11 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 	if client.UseRegionalEndpoint {
 		config = config.WithEndpointResolver(client)
 	}
+	config = config.WithHTTPClient(&http.Client{
+		Timeout: 10 * time.Second,
+	})
+	config = config.WithMaxRetries(0)
+
 	client.StsService = sts.New(sess, config)
 
 	return client, nil

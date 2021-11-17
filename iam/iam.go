@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
-	"net/http"
 	"strings"
 	"time"
 
@@ -198,10 +197,6 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 	if client.UseRegionalEndpoint {
 		config = config.WithEndpointResolver(client)
 	}
-	config = config.WithHTTPClient(&http.Client{
-		Timeout: 10 * time.Second,
-	})
-
 	sess, err := session.NewSession(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the new aws session %v", err.Error())

@@ -206,7 +206,7 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 		config = config.WithEndpointResolver(client)
 	}
 	config = config.WithHTTPClient(&http.Client{
-		Timeout: 2 * time.Second,
+		Timeout: 10 * time.Second,
 	})
 	client.StsService = sts.New(sess, config)
 

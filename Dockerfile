@@ -14,6 +14,7 @@ RUN go build -o /app/main /app/cmd
 FROM ubuntu:20.04
 
 COPY --from=BUILDER /etc/ssl/certs/ /etc/ssl/certs/
+RUN apt-get update && apt-get install -y iptables 
 
 COPY --from=builder /app/main .
 

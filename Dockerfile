@@ -3,7 +3,7 @@ FROM golang:1.16.0 AS builder
 WORKDIR /app
 
 ENV GO111MODULE=on \
-  CGO_ENABLED=0 \
+  CGO_ENABLED=1 \
   GOOS=linux \
   GOARCH=amd64
 
@@ -22,4 +22,4 @@ COPY --from=builder /usr/local/go/lib/time/zoneinfo.zip /
 ENV TZ=Asia/Kolkata
 ENV ZONEINFO=/zoneinfo.zip
 
-CMD ["./main"]
+ENTRYPOINT ["main"]

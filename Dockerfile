@@ -3,7 +3,7 @@ FROM golang:1.16.0 AS builder
 WORKDIR /app
 
 ENV GO111MODULE=on \
-  CGO_ENABLED=1 \
+  CGO_ENABLED=0 \
   GOOS=linux \
   GOARCH=amd64
 

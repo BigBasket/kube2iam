@@ -29,7 +29,7 @@ var (
 			Name:      "request_duration_seconds",
 			Help:      "Time taken to complete IAM request in seconds.",
 
-			Buckets: prometheus.ExponentialBuckets(0.001, 2, 14),
+			Buckets: prometheus.ExponentialBuckets(0.005, 2, 10),
 		},
 		[]string{
 			// The HTTP status code AWS returned

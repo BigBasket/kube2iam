@@ -29,16 +29,3 @@ func TestIsValidRegion(t *testing.T) {
 		}
 	}
 }
-
-func TestIsValidRegionWithInvalid(t *testing.T) {
-	regions := []string{
-		"cn-north-7",
-		"",
-		"xx-xxxx-x",
-	}
-	for _, region := range regions {
-		if IsValidRegion(region) {
-			t.Errorf("%s is a valid region", region)
-		}
-	}
-}

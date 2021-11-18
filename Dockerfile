@@ -1,13 +1,24 @@
-FROM golang:1.16.0 AS BUILDER
-WORKDIR /go/src/github.com/jtblin/kube2iam
-ENV ARCH=linux
-ENV CGO_ENABLED=0
-COPY . ./
-RUN make setup && make build
+FROM golang:1.16.0 AS builder
 
-FROM alpine:3.12.1
-RUN apk --no-cache add \
-    ca-certificates \
-    iptables
-COPY --from=BUILDER /go/src/github.com/jtblin/kube2iam/build/bin/linux/kube2iam /bin/kube2iam
-ENTRYPOINT ["kube2iam"]
+WORKDIR /app
+
+ENV GO111MODULE=on \
+  CGO_ENABLED=1 \
+  GOOS=linux \
+  GOARCH=amd64
+
+COPY . ./
+
+RUN go build -o /app/main /app/cmd
+	
+FROM ubuntu:20.04
+
+COPY --from=BUILDER /etc/ssl/certs/ /etc/ssl/certs/
+
+COPY --from=builder /app/main .
+
+COPY --from=builder /usr/local/go/lib/time/zoneinfo.zip /
+ENV TZ=Asia/Kolkata
+ENV ZONEINFO=/zoneinfo.zip
+
+CMD ["./main"]

@@ -1,19 +1,16 @@
 package iam
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"hash/fnv"
-	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/jtblin/kube2iam/metrics"
 	"github.com/karlseguin/ccache"
 	"github.com/sirupsen/logrus"
@@ -31,7 +28,7 @@ type Client struct {
 	Endpoint            string
 	UseRegionalEndpoint bool
 	StsVpcEndPoint      string
-	StsService          *sts.STS
+	StsClient           *sts.Client
 }
 
 // Credentials represent the security Credentials response.
@@ -54,24 +51,10 @@ func getHash(text string) string {
 	return fmt.Sprintf("%x", h.Sum32())
 }
 
-// GetInstanceIAMRole get instance IAM role from metadata service.
 func GetInstanceIAMRole() (string, error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return "", err
-	}
-	metadata := ec2metadata.New(sess)
-	if !metadata.Available() {
-		return "", errors.New("EC2 Metadata is not available, are you running on EC2?")
-	}
-	iamRole, err := metadata.GetMetadata("iam/security-credentials/")
-	if err != nil {
-		return "", err
-	}
-	if iamRole == "" || err != nil {
-		return "", errors.New("EC2 Metadata didn't returned any IAM Role")
-	}
-	return iamRole, nil
+	// instance iam role is already supplied through command line arguments
+
+	return "", nil
 }
 
 func sessionName(roleARN, remoteIP string) string {
@@ -83,11 +66,9 @@ func sessionName(roleARN, remoteIP string) string {
 // Helper to format IAM return codes for metric labeling
 func getIAMCode(err error) string {
 	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			return awsErr.Code()
-		}
 		return metrics.IamUnknownFailCode
 	}
+
 	return metrics.IamSuccessCode
 }
 
@@ -100,37 +81,24 @@ func GetEndpointFromRegion(region string) string {
 	return endpoint
 }
 
-// IsValidRegion tests for a vaild region name
-func IsValidRegion(promisedLand string) bool {
-	partitions := endpoints.DefaultResolver().(endpoints.EnumPartitions).Partitions()
-	for _, p := range partitions {
-		for region := range p.Regions() {
-			if promisedLand == region {
-				return true
-			}
-		}
-	}
-	return false
+func IsValidRegion(region string) bool {
+	return true
 }
 
-// EndpointFor implements the endpoints.Resolver interface for use with sts
-func (iam *Client) EndpointFor(service, region string, optFns ...func(*endpoints.Options)) (endpoints.ResolvedEndpoint, error) {
-	// only for sts service
+func (iam *Client) ResolveEndpoint(service, region string, options ...interface{}) (aws.Endpoint, error) {
 	if service == "sts" {
-		// only if a valid region is explicitly set
-		if IsValidRegion(region) {
-			if iam.StsVpcEndPoint == "" {
-				iam.Endpoint = GetEndpointFromRegion(region)
-			} else {
-				iam.Endpoint = iam.StsVpcEndPoint
-			}
-			return endpoints.ResolvedEndpoint{
-				URL:           iam.Endpoint,
-				SigningRegion: region,
-			}, nil
+		if iam.StsVpcEndPoint == "" {
+			iam.Endpoint = GetEndpointFromRegion(region)
+		} else {
+			iam.Endpoint = iam.StsVpcEndPoint
 		}
+		return aws.Endpoint{
+			URL:           iam.Endpoint,
+			SigningRegion: region,
+		}, nil
 	}
-	return endpoints.DefaultResolver().EndpointFor(service, region, optFns...)
+
+	return aws.Endpoint{}, nil
 }
 
 // AssumeRole returns an IAM role Credentials using AWS STS.
@@ -149,17 +117,15 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		defer timer.ObserveDuration()
 
 		assumeRoleInput := sts.AssumeRoleInput{
-			DurationSeconds: aws.Int64(int64(sessionTTL.Seconds() * 2)),
+			DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 2)),
 			RoleArn:         aws.String(roleARN),
 			RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
 		}
 		// Only inject the externalID if one was provided with the request
 		if externalID != "" {
-			assumeRoleInput.SetExternalId(externalID)
+			assumeRoleInput.ExternalId = &externalID
 		}
-		logrus.Debugf("making call to the assume role %v", iam.StsService)
-
-		resp, err := iam.StsService.AssumeRole(&assumeRoleInput)
+		resp, err := iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
 		if err != nil {
 			logrus.Error(err)
 
@@ -195,22 +161,17 @@ func NewClient(baseARN string, regional bool, stsVpcEndPoint string) (*Client, e
 		UseRegionalEndpoint: regional,
 		StsVpcEndPoint:      stsVpcEndPoint,
 	}
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to open the new aws session %v", err.Error())
-	}
 
-	config := aws.NewConfig().WithLogLevel(
-		aws.LogDebug | aws.LogDebugWithRequestRetries | aws.LogDebugWithRequestErrors)
+	cfg, cErr := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(os.Getenv("AWS_REGION")),
+		config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries))
+	if cErr != nil {
+		return nil, cErr
+	}
 	if client.UseRegionalEndpoint {
-		config = config.WithEndpointResolver(client)
+		cfg.EndpointResolverWithOptions = client
 	}
-	config = config.WithHTTPClient(&http.Client{
-		Timeout: 1 * time.Second,
-	})
-	config = config.WithMaxRetries(0)
-
-	client.StsService = sts.New(sess, config)
+	client.StsClient = sts.NewFromConfig(cfg)
 
 	return client, nil
 }

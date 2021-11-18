@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 const fullArnPrefix = "arn:"
@@ -30,22 +27,7 @@ func (iam *Client) RoleARN(role string) string {
 
 // GetBaseArn get the base ARN from metadata service.
 func GetBaseArn() (string, error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return "", err
-	}
-	metadata := ec2metadata.New(sess)
-	if !metadata.Available() {
-		return "", fmt.Errorf("EC2 Metadata is not available, are you running on EC2?")
-	}
-	iamInfo, err := metadata.IAMInfo()
-	if err != nil {
-		return "", err
-	}
-	arn := strings.Replace(iamInfo.InstanceProfileArn, "instance-profile", "role", 1)
-	baseArn := strings.Split(arn, "/")
-	if len(baseArn) < 2 {
-		return "", fmt.Errorf("can't determine BaseARN")
-	}
-	return fmt.Sprintf("%s/", baseArn[0]), nil
+	// base arn is already provided as the command line argument
+
+	return "", nil
 }

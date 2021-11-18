@@ -22,4 +22,4 @@ COPY --from=builder /usr/local/go/lib/time/zoneinfo.zip /
 ENV TZ=Asia/Kolkata
 ENV ZONEINFO=/zoneinfo.zip
 
-ENTRYPOINT ["main"]
+CMD ["./main"]

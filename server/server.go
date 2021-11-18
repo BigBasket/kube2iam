@@ -319,36 +319,16 @@ func (s *Server) securityCredentialsHandler(logger *log.Entry, w http.ResponseWr
 
 func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", "EC2ws")
+
 	remoteIP := parseRemoteAddr(r.RemoteAddr)
-
-	roleMapping, err := s.getRoleMapping(remoteIP)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
-		return
-	}
-
-	externalID, err := s.getExternalIDMapping(remoteIP)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	roleLogger := logger.WithFields(log.Fields{
-		"pod.iam.role": roleMapping.Role,
-		"ns.name":      roleMapping.Namespace,
-	})
-
 	wantedRole := mux.Vars(r)["role"]
 	wantedRoleARN := s.iam.RoleARN(wantedRole)
 
-	if wantedRoleARN != roleMapping.Role {
-		roleLogger.WithField("params.iam.role", wantedRole).
-			Error("Invalid role: does not match annotated role")
-		http.Error(w, fmt.Sprintf("Invalid role %s", wantedRole), http.StatusForbidden)
-		return
-	}
+	roleLogger := logger.WithFields(log.Fields{
+		"pod.iam.role": wantedRole,
+	})
 
-	credentials, err := s.iam.AssumeRole(wantedRoleARN, externalID, remoteIP, s.IAMRoleSessionTTL)
+	credentials, err := s.iam.AssumeRole(wantedRoleARN, "", remoteIP, s.IAMRoleSessionTTL)
 	if err != nil {
 		roleLogger.Errorf("Error assuming role %+v", err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)

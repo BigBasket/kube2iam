@@ -103,54 +103,40 @@ func (iam *Client) ResolveEndpoint(service, region string, options ...interface{
 
 // AssumeRole returns an IAM role Credentials using AWS STS.
 func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessionTTL time.Duration) (*Credentials, error) {
-	hitCache := true
-	item, err := cache.Fetch(roleARN, 0*time.Second, func() (interface{}, error) {
-		hitCache = false
-
-		// Set up a prometheus timer to track the AWS request duration. It stores the timer value when
-		// observed. A function gets err at observation time to report the status of the request after the function returns.
-		var err error
-		lvsProducer := func() []string {
-			return []string{getIAMCode(err), roleARN}
-		}
-		timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
-		defer timer.ObserveDuration()
-
-		assumeRoleInput := sts.AssumeRoleInput{
-			DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 2)),
-			RoleArn:         aws.String(roleARN),
-			RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
-		}
-		// Only inject the externalID if one was provided with the request
-		if externalID != "" {
-			assumeRoleInput.ExternalId = &externalID
-		}
-		resp, err := iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
-		if err != nil {
-			logrus.Error(err)
-
-			return nil, err
-		}
-
-		return &Credentials{
-			AccessKeyID:     *resp.Credentials.AccessKeyId,
-			Code:            "Success",
-			Expiration:      resp.Credentials.Expiration.Format("2006-01-02T15:04:05Z"),
-			LastUpdated:     time.Now().Format("2006-01-02T15:04:05Z"),
-			SecretAccessKey: *resp.Credentials.SecretAccessKey,
-			Token:           *resp.Credentials.SessionToken,
-			Type:            "AWS-HMAC",
-		}, nil
-	})
-	if hitCache {
-		metrics.IamCacheHitCount.WithLabelValues(roleARN).Inc()
+	// Set up a prometheus timer to track the AWS request duration. It stores the timer value when
+	// observed. A function gets err at observation time to report the status of the request after the function returns.
+	var err error
+	lvsProducer := func() []string {
+		return []string{getIAMCode(err), roleARN}
 	}
+	timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
+	defer timer.ObserveDuration()
+
+	assumeRoleInput := sts.AssumeRoleInput{
+		DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 2)),
+		RoleArn:         aws.String(roleARN),
+		RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
+	}
+	// Only inject the externalID if one was provided with the request
+	if externalID != "" {
+		assumeRoleInput.ExternalId = &externalID
+	}
+	resp, err := iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
 	if err != nil {
 		logrus.Error(err)
 
 		return nil, err
 	}
-	return item.Value().(*Credentials), nil
+
+	return &Credentials{
+		AccessKeyID:     *resp.Credentials.AccessKeyId,
+		Code:            "Success",
+		Expiration:      resp.Credentials.Expiration.Format("2006-01-02T15:04:05Z"),
+		LastUpdated:     time.Now().Format("2006-01-02T15:04:05Z"),
+		SecretAccessKey: *resp.Credentials.SecretAccessKey,
+		Token:           *resp.Credentials.SessionToken,
+		Type:            "AWS-HMAC",
+	}, nil
 }
 
 // NewClient returns a new IAM client.

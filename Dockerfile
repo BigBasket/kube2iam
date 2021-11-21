@@ -9,7 +9,7 @@ ENV GO111MODULE=on \
 
 COPY . ./
 
-RUN go build -o /app/main /app/cmd/sts/
+RUN go build -o /app/main /app/cmd/
 	
 FROM ubuntu:20.04
 

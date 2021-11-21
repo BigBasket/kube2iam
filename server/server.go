@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cenk/backoff"
@@ -395,33 +396,43 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 	// Begin healthchecking
 	s.beginPollHealthcheck(healthcheckInterval)
 
-	r := mux.NewRouter()
-	securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
 
-	if s.Debug {
-		// This is a potential security risk if enabled in some clusters, hence the flag
-		r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
-	}
-	r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
-	r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
-	r.Handle(
-		"/{version}/meta-data/iam/security-credentials/{role:.*}",
-		newAppHandler("roleHandler", s.roleHandler))
-	r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
+	go func() {
+		r := mux.NewRouter()
+		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
 
-	if s.MetricsPort == s.AppPort {
-		r.Handle("/metrics", metrics.GetHandler())
-	} else {
-		metrics.StartMetricsServer(s.MetricsPort)
-	}
+		if s.Debug {
+			// This is a potential security risk if enabled in some clusters, hence the flag
+			r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
+		}
+		r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
+		r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
+		r.Handle(
+			"/{version}/meta-data/iam/security-credentials/{role:.*}",
+			newAppHandler("roleHandler", s.roleHandler))
+		r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
 
-	// This has to be registered last so that it catches fall-throughs
-	r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
+		if s.MetricsPort == s.AppPort {
+			r.Handle("/metrics", metrics.GetHandler())
+		} else {
+			metrics.StartMetricsServer(s.MetricsPort)
+		}
 
-	log.Infof("Listening on port %s", s.AppPort)
-	if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
-		log.Fatalf("Error creating kube2iam http server: %+v", err)
-	}
+		// This has to be registered last so that it catches fall-throughs
+		r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
+
+		log.Infof("Listening on port %s", s.AppPort)
+		if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
+			log.Fatalf("Error creating kube2iam http server: %+v", err)
+		}
+
+		wg.Done()
+	}()
+
+	wg.Wait()
+
 	return nil
 }
 

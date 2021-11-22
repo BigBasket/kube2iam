@@ -24,6 +24,8 @@ import (
 	"github.com/jtblin/kube2iam/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
+
+	_ "net/http/pprof"
 )
 
 const (

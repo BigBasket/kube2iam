@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/http/pprof"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -403,8 +404,9 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 
 	go func() {
 		r := mux.NewRouter()
-		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
+		r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
+		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
 		if s.Debug {
 			// This is a potential security risk if enabled in some clusters, hence the flag
 			r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))

@@ -404,6 +404,7 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 
 	go func() {
 		r := mux.NewRouter()
+		r.Path("/debug/pprof/trace").HandlerFunc(pprof.Trace)
 		r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
 		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)

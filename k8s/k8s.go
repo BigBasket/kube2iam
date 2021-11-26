@@ -42,14 +42,13 @@ func (k8s *Client) createPodLW() *cache.ListWatch {
 
 // WatchForPods watches for pod changes.
 func (k8s *Client) WatchForPods(podEventLogger cache.ResourceEventHandler, resyncPeriod time.Duration) cache.InformerSynced {
-	k8s.podIndexer, k8s.podController = cache.NewIndexerInformer(
-		k8s.createPodLW(),
-		&v1.Pod{},
-		resyncPeriod,
-		podEventLogger,
-		cache.Indexers{podIPIndexName: kube2iam.PodIPIndexFunc},
-	)
+	sharedIndexInformer :=
+		cache.NewSharedIndexInformer(k8s.createPodLW(), &v1.Pod{}, resyncPeriod,
+			cache.Indexers{podIPIndexName: kube2iam.PodIPIndexFunc})
+	k8s.podController = sharedIndexInformer.GetController()
+	k8s.podIndexer = sharedIndexInformer.GetIndexer()
 	go k8s.podController.Run(wait.NeverStop)
+
 	return k8s.podController.HasSynced
 }
 
@@ -60,14 +59,14 @@ func (k8s *Client) createNamespaceLW() *cache.ListWatch {
 
 // WatchForNamespaces watches for namespaces changes.
 func (k8s *Client) WatchForNamespaces(nsEventLogger cache.ResourceEventHandler, resyncPeriod time.Duration) cache.InformerSynced {
-	k8s.namespaceIndexer, k8s.namespaceController = cache.NewIndexerInformer(
-		k8s.createNamespaceLW(),
-		&v1.Namespace{},
-		resyncPeriod,
-		nsEventLogger,
-		cache.Indexers{namespaceIndexName: kube2iam.NamespaceIndexFunc},
-	)
+	sharedIndexInformer :=
+		cache.NewSharedIndexInformer(k8s.createNamespaceLW(), &v1.Namespace{}, resyncPeriod,
+			cache.Indexers{namespaceIndexName: kube2iam.NamespaceIndexFunc})
+	k8s.namespaceController = sharedIndexInformer.GetController()
+	k8s.namespaceIndexer = sharedIndexInformer.GetIndexer()
+
 	go k8s.namespaceController.Run(wait.NeverStop)
+
 	return k8s.namespaceController.HasSynced
 }
 

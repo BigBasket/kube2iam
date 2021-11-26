@@ -12,11 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/jtblin/kube2iam/metrics"
-	"github.com/karlseguin/ccache"
 	"github.com/sirupsen/logrus"
 )
-
-var cache = ccache.New(ccache.Configure())
 
 const (
 	maxSessNameLength = 64

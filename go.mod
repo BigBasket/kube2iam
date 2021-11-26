@@ -11,8 +11,6 @@ require (
 	github.com/coreos/go-iptables v0.1.0
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v0.0.0-20160920230813-757bef944d0f
-	github.com/karlseguin/ccache v2.0.1-0.20160708030345-2f6b517f7bea+incompatible
-	github.com/karlseguin/expect v1.0.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/prometheus/client_golang v0.9.0-pre1
 	github.com/prometheus/client_model v0.0.0-20171117100541-99fa1f4be8e5 // indirect

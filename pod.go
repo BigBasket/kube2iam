@@ -41,7 +41,7 @@ func (p *PodHandler) OnAdd(obj interface{}) {
 		logger.Errorf("failed to get the pod role %v", gErr.Error())
 	}
 
-	aerospike.AddRole(pod.Status.PodIP, pod.GetNamespace(), podRole)
+	aerospike.AddRole(pod.Status.PodIP, podRole, pod.GetNamespace())
 
 	//TODO JRN: Should we be filtering this by the `isPodActive` to reduce chatter and confusion about
 	// what is actually being indexed by the indexer? This gets a little tricky with the OnUpdate piece
@@ -63,7 +63,7 @@ func (p *PodHandler) OnUpdate(oldObj, newObj interface{}) {
 	if gErr != nil {
 		logger.Errorf("failed to get the pod role %v", gErr.Error())
 	}
-	aerospike.UpdateRole(newPod.Status.PodIP, newPod.GetNamespace(), podRole)
+	aerospike.UpdateRole(newPod.Status.PodIP, podRole, newPod.GetNamespace())
 
 	logger.Debug("Pod OnUpdate")
 }

@@ -120,13 +120,13 @@ func DeleteRole(podIp string) error {
 	return nil
 }
 
-func GetRole(podIp string) (*string, *string, error) {
+func GetRole(podIp string) (string, string, error) {
 	key, gErr := getKey(podIp)
 	if gErr != nil {
 		rErr := fmt.Errorf("failed to prepare the aerospike key %v %v", podIp, gErr)
 		logrus.Errorf(rErr.Error())
 
-		return nil, nil, rErr
+		return "", "", rErr
 	}
 
 	pol := aero.BasePolicy{SendKey: true}
@@ -135,14 +135,14 @@ func GetRole(podIp string) (*string, *string, error) {
 		rErr := fmt.Errorf("failed to connect to the aerospike key %v %v", podIp, cErr)
 		logrus.Errorf(rErr.Error())
 
-		return nil, nil, cErr
+		return "", "", cErr
 	}
 
 	record, gErr := client.Get(&pol, key)
 	if gErr != nil {
 		logrus.Errorf("failed to get the key %v %v", podIp, gErr.Error())
 
-		return nil, nil, gErr
+		return "", "", gErr
 	}
 
 	logrus.Infof("found value %v for key %v", record.Bins, podIp)
@@ -150,7 +150,9 @@ func GetRole(podIp string) (*string, *string, error) {
 	role := record.Bins["role"].(string)
 	namespace := record.Bins["namespace"].(string)
 
-	return &role, &namespace, nil
+	logrus.Infof("found role: %v namespace: %v for key: %v", role, namespace, podIp)
+
+	return role, namespace, nil
 }
 
 func getKey(podIp string) (*aero.Key, error) {

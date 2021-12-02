@@ -48,12 +48,12 @@ func (r *RoleMapper) GetRoleMappingUsingCache(IP string) (*RoleMappingResult, er
 	}
 
 	// Determine if normalized role is allowed to be used in pod's namespace
-	if r.checkRoleForNamespace(*role, *namespace) {
-		return &RoleMappingResult{Role: *role, Namespace: *namespace, IP: IP}, nil
+	if r.checkRoleForNamespace(role, namespace) {
+		return &RoleMappingResult{Role: role, Namespace: namespace, IP: IP}, nil
 	}
 
 	return nil, fmt.Errorf(
-		"role requested %s not valid for namespace of pod at %s with namespace %s", *role, IP, *namespace)
+		"role requested %s not valid for namespace of pod at %s with namespace %s", role, IP, namespace)
 }
 
 // GetRoleMapping returns the normalized iam RoleMappingResult based on IP address

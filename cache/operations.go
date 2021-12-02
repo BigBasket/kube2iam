@@ -1,9 +1,9 @@
 package cache
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/aerospike/aerospike-client-go"
 	aero "github.com/aerospike/aerospike-client-go"
 	"github.com/sirupsen/logrus"
 )
@@ -14,15 +14,18 @@ const (
 )
 
 func AddRole(podIp, role, namespace string) error {
-	key := getKey(podIp)
+	key, gErr := getKey(podIp)
+	if gErr != nil {
+		logrus.Errorf("failed to prepare the aerospike key %v %v", podIp, gErr)
+	}
 
 	bins := aero.BinMap{
 		"role":      role,
 		"namespace": namespace,
 	}
 
-	basePol := aerospike.BasePolicy{SendKey: true}
-	pol := aerospike.WritePolicy{Expiration: math.MaxUint32}
+	basePol := aero.BasePolicy{SendKey: true}
+	pol := aero.WritePolicy{Expiration: math.MaxUint32}
 	pol.BasePolicy = basePol
 
 	pErr := getClient().Put(&pol, key, bins)
@@ -34,15 +37,21 @@ func AddRole(podIp, role, namespace string) error {
 }
 
 func UpdateRole(podIp, role, namespace string) error {
-	key := getKey(podIp)
+	key, gErr := getKey(podIp)
+	if gErr != nil {
+		rErr := fmt.Errorf("failed to prepare the aerospike key %v %v", podIp, gErr)
+		logrus.Errorf(rErr.Error())
+
+		return rErr
+	}
 
 	bins := aero.BinMap{
 		"role":      role,
 		"namespace": namespace,
 	}
 
-	basePol := aerospike.BasePolicy{SendKey: true}
-	pol := aerospike.WritePolicy{Expiration: math.MaxUint32}
+	basePol := aero.BasePolicy{SendKey: true}
+	pol := aero.WritePolicy{Expiration: math.MaxUint32}
 	pol.BasePolicy = basePol
 
 	pErr := getClient().Put(&pol, key, bins)
@@ -54,7 +63,13 @@ func UpdateRole(podIp, role, namespace string) error {
 }
 
 func DeleteRole(podIp string) error {
-	key := getKey(podIp)
+	key, gErr := getKey(podIp)
+	if gErr != nil {
+		rErr := fmt.Errorf("failed to prepare the aerospike key %v %v", podIp, gErr)
+		logrus.Errorf(rErr.Error())
+
+		return rErr
+	}
 
 	keyDeleted, dErr := getClient().Delete(nil, key)
 	if dErr != nil {
@@ -67,8 +82,15 @@ func DeleteRole(podIp string) error {
 }
 
 func GetRole(podIp string) (*string, *string, error) {
-	key := getKey(podIp)
-	pol := aerospike.BasePolicy{SendKey: true}
+	key, gErr := getKey(podIp)
+	if gErr != nil {
+		rErr := fmt.Errorf("failed to prepare the aerospike key %v %v", podIp, gErr)
+		logrus.Errorf(rErr.Error())
+
+		return nil, nil, rErr
+	}
+
+	pol := aero.BasePolicy{SendKey: true}
 	record, gErr := getClient().Get(&pol, key)
 
 	if gErr != nil {
@@ -82,9 +104,14 @@ func GetRole(podIp string) (*string, *string, error) {
 	return &role, &namespace, nil
 }
 
-func getKey(podIp string) *aero.Key {
+func getKey(podIp string) (*aero.Key, error) {
+	logrus.Infof("preparing the aerospike key as %v", podIp)
 	key, kErr := aero.NewKey(nameSpace, set, podIp)
-	logrus.Errorf("failed to get the aerospike key %v %v", podIp, kErr.Error())
+	if kErr != nil {
+		logrus.Errorf("failed to get the aerospike key %v %v", podIp, kErr.Error())
 
-	return key
+		return nil, kErr
+	}
+
+	return key, nil
 }

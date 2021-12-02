@@ -1,6 +1,9 @@
 package cache
 
 import (
+	"math"
+
+	"github.com/aerospike/aerospike-client-go"
 	aero "github.com/aerospike/aerospike-client-go"
 	"github.com/sirupsen/logrus"
 )
@@ -18,8 +21,11 @@ func AddRole(podIp, role, namespace string) error {
 		"namespace": namespace,
 	}
 
-	writePolicy := aero.NewWritePolicy(0, 0)
-	pErr := getClient().Put(writePolicy, key, bins)
+	basePol := aerospike.BasePolicy{SendKey: true}
+	pol := aerospike.WritePolicy{Expiration: math.MaxUint32}
+	pol.BasePolicy = basePol
+
+	pErr := getClient().Put(&pol, key, bins)
 	if pErr != nil {
 		logrus.Errorf("failed to put the key %v %v", podIp, pErr.Error())
 	}
@@ -35,8 +41,11 @@ func UpdateRole(podIp, role, namespace string) error {
 		"namespace": namespace,
 	}
 
-	writePolicy := aero.NewWritePolicy(0, 0)
-	pErr := getClient().Put(writePolicy, key, bins)
+	basePol := aerospike.BasePolicy{SendKey: true}
+	pol := aerospike.WritePolicy{Expiration: math.MaxUint32}
+	pol.BasePolicy = basePol
+
+	pErr := getClient().Put(&pol, key, bins)
 	if pErr != nil {
 		logrus.Errorf("failed to put the key %v %v", podIp, pErr.Error())
 	}
@@ -47,8 +56,7 @@ func UpdateRole(podIp, role, namespace string) error {
 func DeleteRole(podIp string) error {
 	key := getKey(podIp)
 
-	writePolicy := aero.NewWritePolicy(0, 0)
-	keyDeleted, dErr := getClient().Delete(writePolicy, key)
+	keyDeleted, dErr := getClient().Delete(nil, key)
 	if dErr != nil {
 		logrus.Errorf("failed to put the key %v %v", podIp, dErr.Error())
 	}
@@ -60,8 +68,9 @@ func DeleteRole(podIp string) error {
 
 func GetRole(podIp string) (*string, *string, error) {
 	key := getKey(podIp)
-	readPolicy := aero.NewPolicy()
-	record, gErr := getClient().Get(readPolicy, key)
+	pol := aerospike.BasePolicy{SendKey: true}
+	record, gErr := getClient().Get(&pol, key)
+
 	if gErr != nil {
 		logrus.Errorf("failed to get the key %v %v", podIp, gErr.Error())
 
@@ -74,7 +83,8 @@ func GetRole(podIp string) (*string, *string, error) {
 }
 
 func getKey(podIp string) *aero.Key {
-	key, _ := aero.NewKey(nameSpace, set, podIp)
+	key, kErr := aero.NewKey(nameSpace, set, podIp)
+	logrus.Errorf("failed to get the aerospike key %v %v", podIp, kErr.Error())
 
 	return key
 }

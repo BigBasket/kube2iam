@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"fmt"
+
 	aero "github.com/aerospike/aerospike-client-go"
 	"github.com/sirupsen/logrus"
 )
@@ -11,16 +13,17 @@ const (
 
 var aeroClient *aero.Client = nil
 
-func getClient() *aero.Client {
+func getClient() (*aero.Client, error) {
 	if aeroClient == nil {
 		var cErr error
 		aeroClient, cErr = aero.NewClient(host, 3000)
 		if cErr != nil {
-			logrus.Errorf("failed to open the aerospike connection %v", cErr.Error())
-		}
+			rErr := fmt.Errorf("failed to open the aerospike connection %v", cErr.Error())
+			logrus.Errorf(rErr.Error())
 
-		return nil
+			return nil, rErr
+		}
 	}
 
-	return aeroClient
+	return aeroClient, nil
 }

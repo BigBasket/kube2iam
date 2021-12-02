@@ -22,6 +22,7 @@ func AddRole(podIp, role, namespace string) error {
 		return rErr
 	}
 
+	logrus.Infof("adding the bins with role: %v namespace: %v", role, namespace)
 	bins := aero.BinMap{
 		"role":      role,
 		"namespace": namespace,
@@ -45,6 +46,8 @@ func AddRole(podIp, role, namespace string) error {
 
 		return pErr
 	}
+
+	logrus.Infof("aerospike key set for key: %v", podIp)
 
 	return nil
 }
@@ -58,6 +61,7 @@ func UpdateRole(podIp, role, namespace string) error {
 		return rErr
 	}
 
+	logrus.Infof("adding the bins with role: %v namespace: %v", role, namespace)
 	bins := aero.BinMap{
 		"role":      role,
 		"namespace": namespace,
@@ -81,6 +85,8 @@ func UpdateRole(podIp, role, namespace string) error {
 
 		return pErr
 	}
+
+	logrus.Infof("aerospike key set for key: %v", podIp)
 
 	return nil
 }
@@ -138,6 +144,8 @@ func GetRole(podIp string) (*string, *string, error) {
 
 		return nil, nil, gErr
 	}
+
+	logrus.Infof("found value %v for key %v", record.Bins, podIp)
 
 	role := record.Bins["role"].(string)
 	namespace := record.Bins["namespace"].(string)

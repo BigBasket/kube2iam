@@ -93,6 +93,8 @@ type Server struct {
 	HealthcheckFailReason      string
 	healthcheckTicker          *time.Ticker
 	StsVpcEndPoint             string
+	BootAsWebServer            bool
+	BootAsWatcher              bool
 }
 
 type appHandlerFunc func(*log.Entry, http.ResponseWriter, *http.Request)
@@ -181,7 +183,7 @@ func (s *Server) getRoleMapping(IP string) (*mappings.RoleMappingResult, error) 
 	var roleMapping *mappings.RoleMappingResult
 	var err error
 	operation := func() error {
-		roleMapping, err = s.roleMapper.GetRoleMapping(IP)
+		roleMapping, err = s.roleMapper.GetRoleMappingUsingCache(IP)
 		return err
 	}
 
@@ -379,63 +381,64 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 		return nErr
 	}
 
-	log.Debugln("Caches have been synced.  Proceeding with server.")
-	s.roleMapper = mappings.NewRoleMapper(s.IAMRoleKey, s.IAMExternalID, s.DefaultIAMRole, s.NamespaceRestriction, s.NamespaceKey, s.iam, s.k8s, s.NamespaceRestrictionFormat)
-	log.Debugf("Starting pod and namespace sync jobs with %s resync period", s.CacheResyncPeriod.String())
-	podSynched := s.k8s.WatchForPods(kube2iam.NewPodHandler(s.IAMRoleKey), s.CacheResyncPeriod)
-	namespaceSynched := s.k8s.WatchForNamespaces(kube2iam.NewNamespaceHandler(s.NamespaceKey), s.CacheResyncPeriod)
-
-	synced := false
-	for i := 0; i < defaultCacheSyncAttempts && !synced; i++ {
-		synced = cache.WaitForCacheSync(nil, podSynched, namespaceSynched)
-	}
-
-	if !synced {
-		log.Fatalf("Attempted to wait for caches to be synced for %d however it is not done.  Giving up.", defaultCacheSyncAttempts)
-	} else {
-		log.Debugln("Caches have been synced.  Proceeding with server.")
-	}
-
-	// Begin healthchecking
-	s.beginPollHealthcheck(healthcheckInterval)
+	s.roleMapper = mappings.NewRoleMapper(s.IAMRoleKey, s.IAMExternalID, s.DefaultIAMRole, s.NamespaceRestriction,
+		s.NamespaceKey, s.iam, s.k8s, s.NamespaceRestrictionFormat)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 
-	go func() {
-		r := mux.NewRouter()
-		r.Path("/debug/pprof/trace").HandlerFunc(pprof.Trace)
-		r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+	if s.BootAsWatcher {
+		go func() {
+			log.Debugf("Starting pod and namespace sync jobs with %s resync period", s.CacheResyncPeriod.String())
+			podSynched := s.k8s.WatchForPods(kube2iam.NewPodHandler(s.IAMRoleKey, s.DefaultIAMRole, s.iam), s.CacheResyncPeriod)
+			namespaceSynched := s.k8s.WatchForNamespaces(kube2iam.NewNamespaceHandler(s.NamespaceKey), s.CacheResyncPeriod)
 
-		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
-		if s.Debug {
-			// This is a potential security risk if enabled in some clusters, hence the flag
-			r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
-		}
-		r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
-		r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
-		r.Handle(
-			"/{version}/meta-data/iam/security-credentials/{role:.*}",
-			newAppHandler("roleHandler", s.roleHandler))
-		r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
+			synced := false
+			for i := 0; i < defaultCacheSyncAttempts && !synced; i++ {
+				synced = cache.WaitForCacheSync(nil, podSynched, namespaceSynched)
+			}
 
-		if s.MetricsPort == s.AppPort {
-			r.Handle("/metrics", metrics.GetHandler())
-		} else {
-			metrics.StartMetricsServer(s.MetricsPort)
-		}
+			if !synced {
+				log.Fatalf("Attempted to wait for caches to be synced for %d however it is not done.  Giving up.", defaultCacheSyncAttempts)
+			} else {
+				log.Debugln("Caches have been synced.  Proceeding with server.")
+			}
+		}()
+	} else if s.BootAsWebServer {
+		go func() {
+			r := mux.NewRouter()
+			r.Path("/debug/pprof/trace").HandlerFunc(pprof.Trace)
+			r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
-		// This has to be registered last so that it catches fall-throughs
-		r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
+			securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
+			if s.Debug {
+				// This is a potential security risk if enabled in some clusters, hence the flag
+				r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
+			}
+			r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
+			r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
+			r.Handle(
+				"/{version}/meta-data/iam/security-credentials/{role:.*}",
+				newAppHandler("roleHandler", s.roleHandler))
+			r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
 
-		log.Infof("Listening on port %s", s.AppPort)
-		if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
-			log.Fatalf("Error creating kube2iam http server: %+v", err)
-		}
+			if s.MetricsPort == s.AppPort {
+				r.Handle("/metrics", metrics.GetHandler())
+			} else {
+				metrics.StartMetricsServer(s.MetricsPort)
+			}
 
-		wg.Done()
-	}()
+			// This has to be registered last so that it catches fall-throughs
+			r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
 
+			log.Infof("Listening on port %s", s.AppPort)
+			if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
+				log.Fatalf("Error creating kube2iam http server: %+v", err)
+			}
+
+			wg.Done()
+		}()
+	}
 	wg.Wait()
 
 	return nil
@@ -457,8 +460,10 @@ func NewServer() *Server {
 		CacheResyncPeriod:          defaultCacheResyncPeriod,
 		ResolveDupIPs:              defaultResolveDupIPs,
 		NamespaceRestrictionFormat: defaultNamespaceRestrictionFormat,
-		HealthcheckFailReason:      "Healthcheck not yet performed",
+		HealthcheckFailReason:      "",
 		IAMRoleSessionTTL:          defaultIAMRoleSessionTTL,
 		StsVpcEndPoint:             defaultStsVpcEndpoint,
+		BootAsWebServer:            false,
+		BootAsWatcher:              false,
 	}
 }

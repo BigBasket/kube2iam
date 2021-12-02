@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/jtblin/kube2iam"
+	"github.com/jtblin/kube2iam/cache"
 	"github.com/jtblin/kube2iam/iam"
 )
 
@@ -37,6 +38,22 @@ type RoleMappingResult struct {
 	Role      string
 	IP        string
 	Namespace string
+}
+
+// GetRoleMapping returns the normalized iam RoleMappingResult based on IP address
+func (r *RoleMapper) GetRoleMappingUsingCache(IP string) (*RoleMappingResult, error) {
+	role, namespace, gErr := cache.GetRole(IP)
+	if gErr != nil {
+		return nil, gErr
+	}
+
+	// Determine if normalized role is allowed to be used in pod's namespace
+	if r.checkRoleForNamespace(*role, *namespace) {
+		return &RoleMappingResult{Role: *role, Namespace: *namespace, IP: IP}, nil
+	}
+
+	return nil, fmt.Errorf(
+		"role requested %s not valid for namespace of pod at %s with namespace %s", *role, IP, *namespace)
 }
 
 // GetRoleMapping returns the normalized iam RoleMappingResult based on IP address

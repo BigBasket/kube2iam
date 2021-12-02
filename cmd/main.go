@@ -45,6 +45,8 @@ func addFlags(s *server.Server, fs *pflag.FlagSet) {
 	fs.BoolVar(&s.Verbose, "verbose", false, "Verbose")
 	fs.BoolVar(&s.Version, "version", false, "Print the version and exits")
 	fs.StringVar(&s.StsVpcEndPoint, "sts-vpc-endpoint", s.StsVpcEndPoint, "fallback role when vpc endpoint is not set")
+	fs.BoolVar(&s.BootAsWatcher, "bootaswatcher", false, "to watch the namespace and pod events")
+	fs.BoolVar(&s.BootAsWebServer, "bootaswebserver", false, "to serve aws sdk link local web calls")
 }
 
 func main() {

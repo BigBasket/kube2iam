@@ -391,7 +391,7 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 		go func() {
 			log.Debugf("Starting pod and namespace sync jobs with %s resync period", s.CacheResyncPeriod.String())
 			podSynched := s.k8s.WatchForPods(
-				kube2iam.NewPodHandler(s.IAMRoleKey, s.DefaultIAMRole, s.NamespaceKey, s.iam, s.roleMapper), s.CacheResyncPeriod)
+				kube2iam.NewPodHandler(s.IAMRoleKey, s.DefaultIAMRole, s.NamespaceKey, s.iam), s.CacheResyncPeriod)
 			namespaceSynched := s.k8s.WatchForNamespaces(kube2iam.NewNamespaceHandler(s.NamespaceKey), s.CacheResyncPeriod)
 
 			synced := false

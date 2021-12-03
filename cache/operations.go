@@ -80,15 +80,6 @@ func Delete(key string) error {
 }
 
 func Get(key string) (*aero.Record, error) {
-	pol := aero.BasePolicy{SendKey: true}
-	client, cErr := getClient()
-	if cErr != nil {
-		rErr := fmt.Errorf("failed to connect to the aerospike key %v %v", key, cErr)
-		logrus.Errorf(rErr.Error())
-
-		return nil, cErr
-	}
-
 	aeroKey, gErr := prepareKey(key)
 	if gErr != nil {
 		rErr := fmt.Errorf("failed to prepare the aerospike key %v %v", key, gErr)
@@ -97,6 +88,14 @@ func Get(key string) (*aero.Record, error) {
 		return nil, gErr
 	}
 
+	pol := aero.BasePolicy{SendKey: true}
+	client, cErr := getClient()
+	if cErr != nil {
+		rErr := fmt.Errorf("failed to connect to the aerospike key %v %v", key, cErr)
+		logrus.Errorf(rErr.Error())
+
+		return nil, cErr
+	}
 	record, getErr := client.Get(&pol, aeroKey)
 	if getErr != nil {
 		logrus.Errorf("failed to get the key %v %v", aeroKey.Value(), gErr.Error())

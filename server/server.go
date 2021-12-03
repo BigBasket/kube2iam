@@ -423,12 +423,6 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 				newAppHandler("roleHandler", s.roleHandler))
 			r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
 
-			if s.MetricsPort == s.AppPort {
-				r.Handle("/metrics", metrics.GetHandler())
-			} else {
-				metrics.StartMetricsServer(s.MetricsPort)
-			}
-
 			// This has to be registered last so that it catches fall-throughs
 			r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
 

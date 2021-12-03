@@ -126,7 +126,17 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		if externalID != "" {
 			assumeRoleInput.ExternalId = &externalID
 		}
-		assumeRoleOutput, assumeRoleOutputError = iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
+
+		cfg, _ := config.LoadDefaultConfig(context.TODO(),
+			config.WithRegion(os.Getenv("AWS_REGION")),
+			config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries))
+
+		if iam.UseRegionalEndpoint {
+			cfg.EndpointResolverWithOptions = iam
+		}
+
+		stsClient := sts.NewFromConfig(cfg)
+		assumeRoleOutput, assumeRoleOutputError = stsClient.AssumeRole(context.TODO(), &assumeRoleInput)
 
 		wg.Done()
 	}()

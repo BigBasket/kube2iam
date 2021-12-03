@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -102,36 +103,50 @@ func (iam *Client) ResolveEndpoint(service, region string, options ...interface{
 func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessionTTL time.Duration) (*Credentials, error) {
 	// Set up a prometheus timer to track the AWS request duration. It stores the timer value when
 	// observed. A function gets err at observation time to report the status of the request after the function returns.
-	var err error
-	lvsProducer := func() []string {
-		return []string{getIAMCode(err), roleARN}
-	}
-	timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
-	defer timer.ObserveDuration()
 
-	assumeRoleInput := sts.AssumeRoleInput{
-		DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 2)),
-		RoleArn:         aws.String(roleARN),
-		RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
-	}
-	// Only inject the externalID if one was provided with the request
-	if externalID != "" {
-		assumeRoleInput.ExternalId = &externalID
-	}
-	resp, err := iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
-	if err != nil {
-		logrus.Error(err)
+	var assumeRoleOutput *sts.AssumeRoleOutput
+	var assumeRoleOutputError error
 
-		return nil, err
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+
+	go func() {
+		var err error
+		lvsProducer := func() []string {
+			return []string{getIAMCode(err), roleARN}
+		}
+		timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
+		defer timer.ObserveDuration()
+
+		assumeRoleInput := sts.AssumeRoleInput{
+			DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 3600)),
+			RoleArn:         aws.String(roleARN),
+			RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
+		}
+		// Only inject the externalID if one was provided with the request
+		if externalID != "" {
+			assumeRoleInput.ExternalId = &externalID
+		}
+		assumeRoleOutput, assumeRoleOutputError = iam.StsClient.AssumeRole(context.TODO(), &assumeRoleInput)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if assumeRoleOutputError != nil {
+		logrus.Error(assumeRoleOutputError)
+
+		return nil, assumeRoleOutputError
 	}
 
 	return &Credentials{
-		AccessKeyID:     *resp.Credentials.AccessKeyId,
+		AccessKeyID:     *assumeRoleOutput.Credentials.AccessKeyId,
 		Code:            "Success",
-		Expiration:      resp.Credentials.Expiration.Format("2006-01-02T15:04:05Z"),
+		Expiration:      assumeRoleOutput.Credentials.Expiration.Format("2006-01-02T15:04:05Z"),
 		LastUpdated:     time.Now().Format("2006-01-02T15:04:05Z"),
-		SecretAccessKey: *resp.Credentials.SecretAccessKey,
-		Token:           *resp.Credentials.SessionToken,
+		SecretAccessKey: *assumeRoleOutput.Credentials.SecretAccessKey,
+		Token:           *assumeRoleOutput.Credentials.SessionToken,
 		Type:            "AWS-HMAC",
 	}, nil
 }

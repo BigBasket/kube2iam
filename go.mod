@@ -3,7 +3,7 @@ module github.com/jtblin/kube2iam
 go 1.16
 
 require (
-	github.com/aerospike/aerospike-client-go v4.5.2+incompatible // indirect
+	github.com/aerospike/aerospike-client-go v4.5.2+incompatible
 	github.com/aws/aws-sdk-go-v2 v1.11.0
 	github.com/aws/aws-sdk-go-v2/config v1.10.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.10.0
@@ -12,7 +12,6 @@ require (
 	github.com/coreos/go-iptables v0.1.0
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v0.0.0-20160920230813-757bef944d0f
-	github.com/labstack/echo/v4 v4.3.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/prometheus/client_golang v0.9.0-pre1
 	github.com/prometheus/client_model v0.0.0-20171117100541-99fa1f4be8e5 // indirect

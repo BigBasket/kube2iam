@@ -14,6 +14,7 @@ import (
 type PodHandler struct {
 	iamRoleKey     string
 	defaultRoleARN string
+	namespaceKey   string
 	client         *iam.Client
 }
 
@@ -108,10 +109,12 @@ func PodIPIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // NewPodHandler constructs a pod handler given the relevant IAM Role Key
-func NewPodHandler(iamRoleKey string, defaultRole string, client *iam.Client) *PodHandler {
+func NewPodHandler(iamRoleKey string, defaultRole string, namespaceKey string,
+	client *iam.Client) *PodHandler {
 	return &PodHandler{
 		iamRoleKey:     iamRoleKey,
 		defaultRoleARN: defaultRole,
+		namespaceKey:   namespaceKey,
 		client:         client,
 	}
 }

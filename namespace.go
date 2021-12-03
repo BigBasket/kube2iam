@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/jtblin/kube2iam/cache"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
@@ -31,6 +32,9 @@ func (h *NamespaceHandler) OnAdd(obj interface{}) {
 	logger.Debug("Namespace OnAdd")
 
 	roles := GetNamespaceRoleAnnotation(ns, h.namespaceKey)
+
+	cache.AddNRole(ns.GetName(), roles)
+
 	for _, role := range roles {
 		logger.WithField("ns.role", role).Info("Discovered role on namespace (OnAdd)")
 	}
@@ -48,6 +52,8 @@ func (h *NamespaceHandler) OnUpdate(oldObj, newObj interface{}) {
 
 	roles := GetNamespaceRoleAnnotation(nns, h.namespaceKey)
 
+	cache.UpdateNRole(nns.GetName(), roles)
+
 	for _, role := range roles {
 		logger.WithField("ns.role", role).Info("Discovered role on namespace (OnUpdate)")
 	}
@@ -60,6 +66,9 @@ func (h *NamespaceHandler) OnDelete(obj interface{}) {
 		log.Errorf("Expected Namespace but OnDelete handler received %+v", obj)
 		return
 	}
+
+	cache.DeleteNRole(ns.GetName())
+
 	log.WithFields(h.namespaceFields(ns)).Info("Deleting namespace (OnDelete)")
 }
 

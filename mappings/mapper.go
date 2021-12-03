@@ -115,14 +115,14 @@ func (r *RoleMapper) checkRoleForNamespace(roleArn string, namespace string) boo
 		return true
 	}
 
-	ns, err := r.store.NamespaceByName(namespace)
-	if err != nil {
-		log.Debugf("Unable to find an indexed namespace of %s", namespace)
+	roles, gErr := cache.GetNRole(namespace)
+	if gErr != nil {
+		log.Debugf("failed to get the namespace roles from cache %v %v", roleArn, namespace)
+
 		return false
 	}
 
-	ar := kube2iam.GetNamespaceRoleAnnotation(ns, r.namespaceKey)
-	for _, rolePattern := range ar {
+	for _, rolePattern := range roles {
 		normalized := r.iam.RoleARN(rolePattern)
 
 		if strings.ToLower(r.namespaceRestrictionFormat) == "regexp" {
@@ -143,6 +143,7 @@ func (r *RoleMapper) checkRoleForNamespace(roleArn string, namespace string) boo
 
 	}
 	log.Warnf("Role: %s on namespace: %s not found.", roleArn, namespace)
+
 	return false
 }
 

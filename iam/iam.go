@@ -119,7 +119,6 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		defer timer.ObserveDuration()
 
 		assumeRoleInput := sts.AssumeRoleInput{
-			DurationSeconds: aws.Int32(int32(sessionTTL.Seconds() * 3600)),
 			RoleArn:         aws.String(roleARN),
 			RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
 		}

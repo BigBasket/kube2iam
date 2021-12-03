@@ -31,9 +31,12 @@ func GetNRole(namespace string) ([]string, error) {
 
 	logrus.Debugf("found value %v for key %v", record.Bins, namespace)
 
-	role := record.Bins["role"].([]string)
+	var namespaceRoles []string
+	for _, role := range record.Bins["role"].([]interface{}) {
+		namespaceRoles = append(namespaceRoles, role.(string))
+	}
 
-	logrus.Debugf("found role: %v namespace: %v", role, namespace)
+	logrus.Debugf("found role: %v namespace: %v", namespaceRoles, namespace)
 
-	return role, nil
+	return namespaceRoles, nil
 }

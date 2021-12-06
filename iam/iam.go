@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -133,6 +134,9 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 
 		if iam.UseRegionalEndpoint {
 			cfg.EndpointResolverWithOptions = iam
+		}
+		cfg.HTTPClient = &http.Client{
+			Timeout: 1 * time.Second,
 		}
 
 		stsClient := sts.NewFromConfig(cfg)

@@ -36,7 +36,7 @@ const (
 	defaultIAMExternalID              = "iam.amazonaws.com/external-id"
 	defaultLogLevel                   = "info"
 	defaultLogFormat                  = "text"
-	defaultMaxElapsedTime             = 2 * time.Second
+	defaultMaxElapsedTime             = 1 * time.Second
 	defaultIAMRoleSessionTTL          = 15 * time.Minute
 	defaultMaxInterval                = 1 * time.Second
 	defaultMetadataAddress            = "169.254.169.254"
@@ -182,16 +182,9 @@ func parseRemoteAddr(addr string) string {
 func (s *Server) getRoleMapping(IP string) (*mappings.RoleMappingResult, error) {
 	var roleMapping *mappings.RoleMappingResult
 	var err error
-	operation := func() error {
-		roleMapping, err = s.roleMapper.GetRoleMappingUsingCache(IP)
-		return err
-	}
 
-	expBackoff := backoff.NewExponentialBackOff()
-	expBackoff.MaxInterval = s.BackoffMaxInterval
-	expBackoff.MaxElapsedTime = s.BackoffMaxElapsedTime
+	roleMapping, err = s.roleMapper.GetRoleMappingUsingCache(IP)
 
-	err = backoff.Retry(operation, expBackoff)
 	if err != nil {
 		return nil, err
 	}

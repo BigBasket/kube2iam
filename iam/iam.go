@@ -139,13 +139,13 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 
 		cStart := time.Now()
 		stsClient := sts.NewFromConfig(cfg)
-		logrus.Infof("time taken to complete the config: %v", time.Since(cStart).Seconds())
+		logrus.Infof("time taken to complete the config: %v", time.Since(cStart).Milliseconds())
 
 		logrus.Infof("sending the assume role request: %v", roleARN)
 		aStart := time.Now()
 		assumeRoleOutput, assumeRoleOutputError = stsClient.AssumeRole(context.TODO(), &assumeRoleInput)
 
-		logrus.Infof("time taken to complete the assumerole: %v", time.Since(aStart).Seconds())
+		logrus.Infof("time taken to complete the assumerole: %v", time.Since(aStart).Milliseconds())
 
 		wg.Done()
 	}()

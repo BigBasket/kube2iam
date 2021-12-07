@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jtblin/kube2iam/iam"
@@ -15,16 +16,26 @@ func main() {
 	iteration := 0
 	for {
 
-		iteration = iteration + rand.Int()
+		wg := new(sync.WaitGroup)
+		wg.Add(5)
 
-		start := time.Now()
-		client.AssumeRole("arn:aws:iam::274334742953:role/dev-qa-k8s-msvcs-sentinels", "",
-			strconv.Itoa(iteration), 900*time.Second)
-		end := time.Since(start).Seconds()
+		for index := 0; index < 5; index++ {
+			go func() {
+				iteration = iteration + rand.Int()
 
-		fmt.Printf("total time taken %v", end)
-		fmt.Println()
+				start := time.Now()
+				client.AssumeRole("arn:aws:iam::274334742953:role/dev-qa-k8s-msvcs-sentinels", "",
+					strconv.Itoa(iteration), 900*time.Second)
+				end := time.Since(start).Seconds()
 
-		time.Sleep(5 * time.Second)
+				fmt.Printf("total time taken %v", end)
+				fmt.Println()
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
+
+		time.Sleep(30 * time.Second)
 	}
 }

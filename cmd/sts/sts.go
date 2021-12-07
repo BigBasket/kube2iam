@@ -17,9 +17,9 @@ func main() {
 	for {
 
 		wg := new(sync.WaitGroup)
-		wg.Add(5)
+		wg.Add(150)
 
-		for index := 0; index < 5; index++ {
+		for index := 0; index < 150; index++ {
 			go func() {
 				iteration = iteration + rand.Int()
 

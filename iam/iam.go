@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -135,12 +134,18 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 		if iam.UseRegionalEndpoint {
 			cfg.EndpointResolverWithOptions = iam
 		}
-		cfg.HTTPClient = &http.Client{
-			Timeout: 1 * time.Second,
-		}
 
+		logrus.Infof("preparing the sts config request: %v", roleARN)
+
+		cStart := time.Now()
 		stsClient := sts.NewFromConfig(cfg)
+		logrus.Infof("time taken to complete the config: %v", time.Since(cStart).Seconds())
+
+		logrus.Infof("sending the assume role request: %v", roleARN)
+		aStart := time.Now()
 		assumeRoleOutput, assumeRoleOutputError = stsClient.AssumeRole(context.TODO(), &assumeRoleInput)
+
+		logrus.Infof("time taken to complete the assumerole: %v", time.Since(aStart).Seconds())
 
 		wg.Done()
 	}()

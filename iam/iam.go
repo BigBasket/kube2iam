@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,8 +59,11 @@ func GetInstanceIAMRole() (string, error) {
 
 func sessionName(roleARN, remoteIP string) string {
 	idx := strings.LastIndex(roleARN, "/")
-	name := fmt.Sprintf("%s-%s", getHash(remoteIP), roleARN[idx+1:])
-	return fmt.Sprintf("%.[2]*[1]s", name, maxSessNameLength)
+	name := fmt.Sprintf("%s-%s-%s", getHash(remoteIP), roleARN[idx+1:], strconv.Itoa(rand.Int()))
+	sessionName := fmt.Sprintf("%.[2]*[1]s", name, maxSessNameLength)
+	logrus.Debugf("session for the role: %v remoteip: %v session: %v", roleARN, remoteIP, sessionName)
+
+	return sessionName
 }
 
 // Helper to format IAM return codes for metric labeling

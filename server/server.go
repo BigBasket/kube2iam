@@ -425,6 +425,7 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 
 		app, err := newrelic.NewApplication(
 			newrelic.ConfigAppName("kube2iamweb"),
+			newrelic.ConfigDistributedTracerEnabled(true),
 			newrelic.ConfigLicense("41499b068d1ca57f539cfb044bd9ad144000b9b9"),
 		)
 

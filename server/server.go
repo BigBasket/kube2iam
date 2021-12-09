@@ -317,6 +317,8 @@ func (s *Server) securityCredentialsHandler(logger *log.Entry, w http.ResponseWr
 }
 
 func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.Request) {
+	bAssuemRoleStart := time.Now()
+
 	w.Header().Set("Server", "EC2ws")
 
 	remoteIP := parseRemoteAddr(r.RemoteAddr)
@@ -327,6 +329,8 @@ func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.R
 		"pod.iam.role": wantedRole,
 	})
 
+	roleLogger.Debugf("total time taken to call the assume role func %v", time.Since(bAssuemRoleStart).Milliseconds())
+
 	credentials, err := s.iam.AssumeRole(wantedRoleARN, "", remoteIP, s.IAMRoleSessionTTL)
 	if err != nil {
 		roleLogger.Errorf("Error assuming role %+v", err)
@@ -335,10 +339,13 @@ func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.R
 	}
 	roleLogger.Debugf("retrieved credentials from sts endpoint: %s", s.iam.Endpoint)
 
+	bJsonEncode := time.Now()
 	if err := json.NewEncoder(w).Encode(credentials); err != nil {
 		roleLogger.Errorf("Error sending json %+v", err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	}
+
+	roleLogger.Debugf("total time taken to write json response %v", time.Since(bJsonEncode).Milliseconds())
 }
 
 func (s *Server) reverseProxyHandler(logger *log.Entry, w http.ResponseWriter, r *http.Request) {

@@ -23,6 +23,8 @@ import (
 	"github.com/jtblin/kube2iam/k8s"
 	"github.com/jtblin/kube2iam/mappings"
 	"github.com/jtblin/kube2iam/metrics"
+	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
@@ -316,7 +318,7 @@ func (s *Server) securityCredentialsHandler(logger *log.Entry, w http.ResponseWr
 	write(logger, w, roleMapping.Role)
 }
 
-func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.Request) {
+func (s *Server) roleHandler(w http.ResponseWriter, r *http.Request) {
 	bAssuemRoleStart := time.Now()
 
 	w.Header().Set("Server", "EC2ws")
@@ -325,7 +327,7 @@ func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.R
 	wantedRole := mux.Vars(r)["role"]
 	wantedRoleARN := s.iam.RoleARN(wantedRole)
 
-	roleLogger := logger.WithFields(log.Fields{
+	roleLogger := logrus.WithFields(log.Fields{
 		"pod.iam.role": wantedRole,
 	})
 
@@ -384,10 +386,10 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 	s.roleMapper = mappings.NewRoleMapper(s.IAMRoleKey, s.IAMExternalID, s.DefaultIAMRole, s.NamespaceRestriction,
 		s.NamespaceKey, s.iam, s.k8s, s.NamespaceRestrictionFormat)
 
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
-
 	if s.BootAsWatcher {
+		wg := new(sync.WaitGroup)
+		wg.Add(1)
+
 		go func() {
 			log.Debugf("Starting pod and namespace sync jobs with %s resync period", s.CacheResyncPeriod.String())
 			podSynched := s.k8s.WatchForPods(
@@ -405,36 +407,46 @@ func (s *Server) Run(host, token, nodeName string, insecure bool) error {
 				log.Debugln("Caches have been synced.  Proceeding with server.")
 			}
 		}()
+
+		wg.Wait()
 	} else if s.BootAsWebServer {
-		go func() {
-			r := mux.NewRouter()
-			r.Path("/debug/pprof/trace").HandlerFunc(pprof.Trace)
-			r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
-			securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
-			if s.Debug {
-				// This is a potential security risk if enabled in some clusters, hence the flag
-				r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
-			}
-			r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
-			r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
-			r.Handle(
-				"/{version}/meta-data/iam/security-credentials/{role:.*}",
-				newAppHandler("roleHandler", s.roleHandler))
-			r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
+		r := mux.NewRouter()
+		r.Path("/debug/pprof/trace").HandlerFunc(pprof.Trace)
+		r.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
-			// This has to be registered last so that it catches fall-throughs
-			r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
+		securityHandler := newAppHandler("securityCredentialsHandler", s.securityCredentialsHandler)
+		if s.Debug {
+			// This is a potential security risk if enabled in some clusters, hence the flag
+			r.Handle("/debug/store", newAppHandler("debugStoreHandler", s.debugStoreHandler))
+		}
+		r.Handle("/{version}/meta-data/iam/security-credentials", securityHandler)
+		r.Handle("/{version}/meta-data/iam/security-credentials/", securityHandler)
 
-			log.Infof("Listening on port %s", s.AppPort)
-			if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
-				log.Fatalf("Error creating kube2iam http server: %+v", err)
-			}
+		app, err := newrelic.NewApplication(
+			newrelic.ConfigAppName("kube2iamweb"),
+			newrelic.ConfigLicense("41499b068d1ca57f539cfb044bd9ad144000b9b9"),
+		)
 
-			wg.Done()
-		}()
+		if err != nil {
+			logrus.Debugf("failed to create application with newrelic %v", err.Error())
+
+			return err
+		} else {
+			r.HandleFunc(newrelic.WrapHandleFunc(app, "/{version}/meta-data/iam/security-credentials/{role:.*}",
+				s.roleHandler))
+		}
+
+		r.Handle("/healthz", newAppHandler("healthHandler", s.healthHandler))
+
+		// This has to be registered last so that it catches fall-throughs
+		r.Handle("/{path:.*}", newAppHandler("reverseProxyHandler", s.reverseProxyHandler))
+
+		log.Infof("Listening on port %s", s.AppPort)
+		if err := http.ListenAndServe(":"+s.AppPort, r); err != nil {
+			log.Fatalf("Error creating kube2iam http server: %+v", err)
+		}
 	}
-	wg.Wait()
 
 	return nil
 }

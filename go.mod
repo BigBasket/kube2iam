@@ -10,6 +10,7 @@ require (
 	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/coreos/go-iptables v0.6.0
 	github.com/gorilla/mux v1.8.0
+	github.com/newrelic/go-agent/v3 v3.15.2
 	github.com/prometheus/client_golang v1.11.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/sirupsen/logrus v1.8.1

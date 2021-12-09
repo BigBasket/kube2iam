@@ -8,7 +8,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -112,50 +111,27 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 	var assumeRoleOutput *sts.AssumeRoleOutput
 	var assumeRoleOutputError error
 
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
+	assumeRoleInput := sts.AssumeRoleInput{
+		RoleArn:         aws.String(roleARN),
+		RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
+	}
+	// Only inject the externalID if one was provided with the request
+	if externalID != "" {
+		assumeRoleInput.ExternalId = &externalID
+	}
 
-	go func() {
-		var err error
-		lvsProducer := func() []string {
-			return []string{getIAMCode(err), roleARN}
-		}
-		timer := metrics.NewFunctionTimer(metrics.IamRequestSec, lvsProducer, nil)
-		defer timer.ObserveDuration()
+	cfg, _ := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(os.Getenv("AWS_REGION")),
+		config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries))
 
-		assumeRoleInput := sts.AssumeRoleInput{
-			RoleArn:         aws.String(roleARN),
-			RoleSessionName: aws.String(sessionName(roleARN, remoteIP)),
-		}
-		// Only inject the externalID if one was provided with the request
-		if externalID != "" {
-			assumeRoleInput.ExternalId = &externalID
-		}
+	if iam.UseRegionalEndpoint {
+		cfg.EndpointResolverWithOptions = iam
+	}
 
-		cfg, _ := config.LoadDefaultConfig(context.TODO(),
-			config.WithRegion(os.Getenv("AWS_REGION")),
-			config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries))
-
-		if iam.UseRegionalEndpoint {
-			cfg.EndpointResolverWithOptions = iam
-		}
-
-		logrus.Infof("preparing the sts config request: %v", roleARN)
-
-		cStart := time.Now()
-		stsClient := sts.NewFromConfig(cfg)
-		logrus.Infof("time taken to complete the config: %v", time.Since(cStart).Milliseconds())
-
-		logrus.Infof("sending the assume role request: %v", roleARN)
-		aStart := time.Now()
-		assumeRoleOutput, assumeRoleOutputError = stsClient.AssumeRole(context.TODO(), &assumeRoleInput)
-
-		logrus.Infof("time taken to complete the assumerole: %v", time.Since(aStart).Milliseconds())
-
-		wg.Done()
-	}()
-
-	wg.Wait()
+	stsClient := sts.NewFromConfig(cfg)
+	aStart := time.Now()
+	assumeRoleOutput, assumeRoleOutputError = stsClient.AssumeRole(context.TODO(), &assumeRoleInput)
+	logrus.Infof("time taken to complete the assumerole: %v", time.Since(aStart).Milliseconds())
 
 	if assumeRoleOutputError != nil {
 		logrus.Error(assumeRoleOutputError)

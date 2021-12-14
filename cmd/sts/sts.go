@@ -16,9 +16,6 @@ func main() {
 	iteration := 0
 	for {
 
-		wg := new(sync.WaitGroup)
-		wg.Add(150)
-
 		for index := 0; index < 150; index++ {
 			go func() {
 				iteration = iteration + rand.Int()
@@ -30,12 +27,9 @@ func main() {
 
 				fmt.Printf("total time taken %v", end)
 				fmt.Println()
-				wg.Done()
 			}()
 		}
 
-		wg.Wait()
-
-		time.Sleep(30 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }

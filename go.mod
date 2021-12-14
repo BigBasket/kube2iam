@@ -7,10 +7,9 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.11.0
 	github.com/aws/aws-sdk-go-v2/config v1.10.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.10.0
-	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/coreos/go-iptables v0.6.0
 	github.com/gorilla/mux v1.8.0
-	github.com/newrelic/go-agent/v3 v3.15.2
+	github.com/labstack/echo/v4 v4.5.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/sirupsen/logrus v1.8.1

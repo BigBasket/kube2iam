@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/jtblin/kube2iam/metrics"
@@ -122,10 +124,17 @@ func (iam *Client) AssumeRole(roleARN, externalID string, remoteIP string, sessi
 
 	cfg, _ := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(os.Getenv("AWS_REGION")),
-		config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries))
+		config.WithClientLogMode(aws.LogRequest|aws.LogResponse|aws.LogRetries),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.AddWithMaxAttempts(retry.NewStandard(), 0)
+		}),
+	)
 
 	if iam.UseRegionalEndpoint {
 		cfg.EndpointResolverWithOptions = iam
+	}
+	cfg.HTTPClient = &http.Client{
+		Timeout: 100 * time.Millisecond,
 	}
 
 	stsClient := sts.NewFromConfig(cfg)

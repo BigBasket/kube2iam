@@ -337,11 +337,11 @@ func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	externalID, err := s.getExternalIDMapping(remoteIP)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
+	// externalID, err := s.getExternalIDMapping(remoteIP)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusNotFound)
+	// 	return
+	// }
 
 	roleLogger := logger.WithFields(log.Fields{
 		"pod.iam.role": roleMapping.Role,
@@ -358,7 +358,7 @@ func (s *Server) roleHandler(logger *log.Entry, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	credentials, err := s.iam.AssumeRole(wantedRoleARN, externalID, remoteIP, s.IAMRoleSessionTTL)
+	credentials, err := s.iam.AssumeRole(wantedRoleARN, "", remoteIP, s.IAMRoleSessionTTL)
 	if err != nil {
 		roleLogger.Errorf("Error assuming role %+v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

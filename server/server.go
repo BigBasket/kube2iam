@@ -36,7 +36,7 @@ const (
 	// Choosing the larger value for max elasped time will have the impact on downstream API latency
 	// The default EC2 metadata timeout is 1 second, hence choosing the value less than 1 second
 	// The downstream API will by default retries 3 times
-	defaultMaxElapsedTime = 500 * time.Millisecond
+	defaultMaxElapsedTime = 900 * time.Millisecond
 
 	defaultIAMRoleSessionTTL = 15 * time.Minute
 
@@ -44,7 +44,7 @@ const (
 	// The shared informer has to populate the cache with in this interval based on the Pod events
 	// If the Pod event is not received, the operation will error out and
 	// the exponential backoff will retry untill the max elasped time
-	defaultMaxInterval = 100 * time.Millisecond
+	defaultMaxInterval = 200 * time.Millisecond
 
 	defaultMetadataAddress            = "169.254.169.254"
 	defaultNamespaceKey               = "iam.amazonaws.com/allowed-roles"

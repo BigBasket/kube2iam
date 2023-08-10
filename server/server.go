@@ -36,7 +36,7 @@ const (
 	// Choosing the larger value for max elasped time will have the impact on downstream API latency
 	// The default EC2 metadata timeout is 1 second, hence choosing the value less than 1 second
 	// The downstream API will by default retries 3 times
-	defaultMaxElapsedTime = 900 * time.Millisecond
+	defaultMaxElapsedTime = 9000 * time.Millisecond
 
 	defaultIAMRoleSessionTTL = 15 * time.Minute
 

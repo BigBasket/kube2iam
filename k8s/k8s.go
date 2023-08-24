@@ -90,7 +90,7 @@ func (k8s *Client) ListNamespaces() []string {
 func (k8s *Client) PodByIP(IP string) (*v1.Pod, error) {
 	pods, err := k8s.podIndexer.ByIndex(podIPIndexName, IP)
 	if err != nil {
-		return nil, err
+		return getPodFromK8s(k8s, IP)
 	}
 
 	if len(pods) == 0 {
@@ -114,6 +114,21 @@ func (k8s *Client) PodByIP(IP string) (*v1.Pod, error) {
 		return nil, err
 	}
 	return pod, nil
+}
+
+func getPodFromK8s(k8s *Client, IP string) (*v1.Pod, error) {
+	runningPodList, err := k8s.CoreV1().Pods("").List(metav1.ListOptions{
+		FieldSelector: selector.OneTermEqualSelector("status.podIP", IP).String(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getPodFromK8s: error retriving the pod with IP %s from the k8s api", IP)
+	}
+
+	for _, pod := range runningPodList.Items {
+		return &pod, nil
+	}
+
+	return nil, fmt.Errorf("getPodFromK8s: error received empty pods respone from the k8s api %s", IP)
 }
 
 // resolveDuplicatedIP queries the k8s api server trying to make a decision based on NON cached data
